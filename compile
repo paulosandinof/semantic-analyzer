@@ -1,0 +1,4 @@
+#!/bin/bash
+lex lexer.l
+yacc parser.y -d -v -g
+gcc y.tab.c -o semantic_analyser
