@@ -15,7 +15,6 @@ ws  [ \t\r\f\v]+
 identifier (_|{letter})({letter}|{digit}|_){0,31}
 hex [0-9a-f]
 
-
 %x CMNT
 
 %%
@@ -33,20 +32,20 @@ hex [0-9a-f]
 "if"                              {return IF;}
 "else"                            {return ELSE;}
 "return"                          {return RETURN;}
-"{"                               {return (LBRACE);}
-"}"                               {return (RBRACE);}
-"("	                              {return (LPAREN);}
-")"	                              {return (RPAREN);}
-"["                               {return (LBRACKET);}
-"]"                               {return (RBRACKET);}
-","                               {return (COMMA);}
-";"                               {return (SEMICOLON);}
-"+"                               {return (PLUS);}
-"-"                               {return (MINUS);}
-"*"                               {return (MULT);}
-"/"                               {return (DIV);}
-"%"                               {return (MOD);}
-"="                               {return (ASSIGN);}
+"{"                               {return LBRACE;}
+"}"                               {return RBRACE;}
+"("	                              {return LPAREN;}
+")"	                              {return RPAREN;}
+"["                               {return LBRACKET;}
+"]"                               {return RBRACKET;}
+","                               {return COMMA;}
+";"                               {return SEMICOLON;}
+"+"                               {return PLUS;}
+"-"                               {return MINUS;}
+"*"                               {return MULT;}
+"/"                               {return DIV;}
+"%"                               {return MOD;}
+"="                               {return ASSIGN;}
 
 {identifier}                      {return IDENTIFIER;}
 {ws}                              ;
@@ -64,25 +63,22 @@ hex [0-9a-f]
 
 "//".*                            ;
 
-\"[^\"\n]*\"                      {
-                                    if(yytext[yyleng-2]=='\\')
-                                    {
-                                      yyless(yyleng-1);
-                                      yymore();
+\"[^\"\n]*\"                    {
+                                    if(yytext[yyleng-2]=='\\') {
+                                        yyless(yyleng-1);
+                                        yymore();
+                                    } else {
+                                        insert(constant_table,yytext,INT_MAX,STRING);
+                                        return STRING;
                                     }
-                                    else
-                                    {
-                                      insert(constant_table,yytext,INT_MAX,STRING);
-                                      return STRING;
-                                    }
-                                  }
+                                }
 
 \"[^\"\n]*$                     {printf("Line %3d: Unterminated string %s\n",yylineno,yytext);}
-{digit}+({letter}|_)+	          {printf("Line %3d: Illegal identifier name %s\n",yylineno,yytext);}
+{digit}+({letter}|_)+	        {printf("Line %3d: Illegal identifier name %s\n",yylineno,yytext);}
 \n                              {yylineno++;}
 
-"--"			                      {return DECREMENT;}
-"++"			                      {return INCREMENT;}
+"--"			                {return DECREMENT;}
+"++"			                {return INCREMENT;}
 "+="                            {return ADD_ASSIGN;}
 "-="                            {return SUB_ASSIGN;}
 "*="                            {return MUL_ASSIGN;}
@@ -90,15 +86,15 @@ hex [0-9a-f]
 "%="                            {return MOD_ASSIGN;}
 
 
-"&&" | "and"			              {return LOGICAL_AND;}
+"&&" | "and"			        {return LOGICAL_AND;}
 "||" | "or"	                    {return LOGICAL_OR;}
-"<="			                      {return LS_EQ;}
-">="			                      {return GR_EQ;}
-"<"                             {return (LESS_THAN);}
-">"                             {return (MORE_THAN);}
+"<="			                {return LESS_EQUAL_THAN;}
+">="			                {return MORE_EQUAL_THAN;}
+"<"                             {return LESS_THAN;}
+">"                             {return MORE_THAN;}
 
-"=="			                      {return EQ;}
-"!="		                        {return NOT_EQ;}
+"=="			                {return EQUAL;}
+"!="		                    {return DIFF;}
 
 .                               {return yytext[0];}
 %%
