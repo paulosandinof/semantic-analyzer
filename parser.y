@@ -39,7 +39,7 @@
 
 %token STRING
 
-%token LOGICAL_AND LOGICAL_OR LS_EQ GR_EQ EQ NOT_EQ
+%token LOGICAL_AND LOGICAL_OR LESS_EQUAL_THAN MORE_EQUAL_THAN EQUAL DIFF
 
 %token MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN SUB_ASSIGN
 
@@ -71,8 +71,8 @@
 %right ASSIGN
 %left LOGICAL_OR
 %left LOGICAL_AND
-%left EQ NOT_EQ
-%left LESS_THAN MORE_THAN LS_EQ GR_EQ
+%left EQUAL DIFF
+%left LESS_THAN MORE_THAN LESS_EQUAL_THAN MORE_EQUAL_THAN
 %left PLUS MINUS
 %left MULT DIV MOD
 %right NOT
@@ -233,10 +233,10 @@ expression: expression COMMA sub_expr
 
 sub_expr: sub_expr MORE_THAN sub_expr		{type_check($1,$3,2); $$ = $1;}
     	|sub_expr LESS_THAN sub_expr		{type_check($1,$3,2); $$ = $1;}
-    	|sub_expr EQ sub_expr				{type_check($1,$3,2); $$ = $1;}
-    	|sub_expr NOT_EQ sub_expr			{type_check($1,$3,2); $$ = $1;}
-    	|sub_expr LS_EQ sub_expr			{type_check($1,$3,2); $$ = $1;}
-    	|sub_expr GR_EQ sub_expr			{type_check($1,$3,2); $$ = $1;}
+    	|sub_expr EQUAL sub_expr			{type_check($1,$3,2); $$ = $1;}
+    	|sub_expr DIFF sub_expr				{type_check($1,$3,2); $$ = $1;}
+    	|sub_expr LESS_EQUAL_THAN sub_expr			{type_check($1,$3,2); $$ = $1;}
+    	|sub_expr MORE_EQUAL_THAN sub_expr			{type_check($1,$3,2); $$ = $1;}
 		|sub_expr LOGICAL_AND sub_expr		{type_check($1,$3,2); $$ = $1;}
 		|sub_expr LOGICAL_OR sub_expr		{type_check($1,$3,2); $$ = $1;}
 		|NOT sub_expr						{$$ = $2;}
@@ -278,7 +278,7 @@ identifier: IDENTIFIER  {
                     	}
     ;
 
-assign_op:ASSIGN	{rhs=1;}
+assign_op:ASSIGN		{rhs=1;}
     	|ADD_ASSIGN 	{rhs=1;} 
     	|SUB_ASSIGN 	{rhs=1;}
     	|MUL_ASSIGN 	{rhs=1;}
@@ -388,7 +388,7 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-			printf("\nPARSING FAILED!\n\n\n");
+		printf("\nPARSING FAILED!\n\n\n");
 	}
 
 	printf("SYMBOL TABLES\n\n");
