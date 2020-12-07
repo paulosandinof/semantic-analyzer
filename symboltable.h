@@ -34,6 +34,16 @@ struct table_s
 
 typedef struct table_s table_t;
 
+/* Struct com os tipos do Yacc, não consegui definir no próprio parser.y */
+struct types_s
+{
+		int data_type;
+		char* code;
+		int ret;
+};
+
+typedef struct types_s types_t;
+
 extern table_t symbol_table_list[NUM_TABLES];
 
 /* Cria nova hash_table. */
