@@ -15,7 +15,7 @@ int main(){
 
     float d = pow(x);
     float resul = d - y + c;
-    print(resul);
+    // print(resul);
 
     return 0;
 }

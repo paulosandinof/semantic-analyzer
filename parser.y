@@ -189,7 +189,7 @@ compound_stmt: LBRACE	{
 			RBRACE 		{
 							current_scope = exit_scope();
 							$$ = $3;
-							$$.code = concat(3, "{\n", $3.code, "\n}\n");
+							$$.code = concat(3, "{\n", $3.code, "}\n");
 						}
     ;
 
@@ -220,7 +220,7 @@ single_stmt: if_block 					{ $$.ret = $1.ret; $$.code = $1.code; }
 												yyerror("return statement not inside function definition");
 											};
 
-											$$.code = "return;";
+											$$.code = "return;\n";
 										}
 			|RETURN sub_expr SEMICOLON	{
 											$$.ret = 1;
@@ -321,8 +321,8 @@ sub_decl: assignment_expr	{ $$.code = $1.code; }
 	;
 
 /* Podemos ter expressoes vazias dentro de loops */
-expression_stmt: expression SEMICOLON	{ $$.code = concat(2, $1.code, ";"); }
-    			|SEMICOLON 				{ $$.code = ";"; }
+expression_stmt: expression SEMICOLON	{ $$.code = concat(2, $1.code, ";\n"); }
+    			|SEMICOLON 				{ $$.code = ";\n"; }
     ;
 
 expression: expression COMMA sub_expr	{ $$.code = concat(3, $1.code, ", ", $3.code); }
@@ -384,11 +384,11 @@ assign_op: ASSIGN		{rhs=1; $$.code = " = "; }
     	|MOD_ASSIGN 	{rhs=1; $$.code = " %= "; }
     ;
 
-arithmetic_expr: arithmetic_expr PLUS arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(2, $1.code, " + ", $3.code); }
-    			|arithmetic_expr MINUS arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(2, $1.code, " - ", $3.code); }
-    			|arithmetic_expr MULT arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(2, $1.code, " * ", $3.code); }
-    			|arithmetic_expr DIV arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(2, $1.code, " / ", $3.code); }
-				|arithmetic_expr MOD arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(2, $1.code, " % ", $3.code); }
+arithmetic_expr: arithmetic_expr PLUS arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(3, $1.code, " + ", $3.code); }
+    			|arithmetic_expr MINUS arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(3, $1.code, " - ", $3.code); }
+    			|arithmetic_expr MULT arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(3, $1.code, " * ", $3.code); }
+    			|arithmetic_expr DIV arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(3, $1.code, " / ", $3.code); }
+				|arithmetic_expr MOD arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(3, $1.code, " % ", $3.code); }
 				|LPAREN arithmetic_expr RPAREN			{$$.data_type = $2.data_type; $$.code = concat(3, "(", $2.code, ")"); }
     			|MINUS arithmetic_expr %prec UMINUS		{$$.data_type = $2.data_type; $$.code = concat(2, "-", $2.code); }
     			|identifier								{$$.data_type = $1->data_type; $$.code = $1->lexeme; }
