@@ -26,6 +26,7 @@
 	int p_idx = 0;
 	int p=0;
     int rhs = 0;
+    int n_label = 0;
 
 	void type_check(int,int,int);
 %}
@@ -115,7 +116,7 @@
 
 %%
 
-printer: starter { printf("%s", $1.code); }
+printer: starter { fprintf(yyout, "%s", $1.code); }
 	;
 
 /* Programa eh composto de varios blocos. */
@@ -235,19 +236,47 @@ single_stmt: if_block 					{ $$.ret = $1.ret; $$.code = $1.code; }
 										}
     ;
 
-for_block: FOR LPAREN expression_stmt  expression_stmt RPAREN {is_loop = 1;} stmt {is_loop = 0; $$.code = concat(6, "for", "(", $3.code, $4.code, ")", $7.code); }
-    	|FOR LPAREN expression_stmt expression_stmt expression RPAREN {is_loop = 1;} stmt {is_loop = 0; $$.code = concat(7, "for", "(", $3.code, $4.code, $5.code, ")", $8.code);}
+for_block: FOR LPAREN expression_stmt  expression_stmt RPAREN {is_loop = 1;} stmt 			{
+																								is_loop = 0;  
+																								char* cond = concat(1, $4.code);
+																								cond[strlen(cond)-1] = '\0';
+																								char num[50]; 
+																								sprintf(num, "%d", n_label); 
+																								n_label++;
+																								$$.code = concat(14, $3.code, "\nif(", cond, ") goto l", num, ";\nl", num, ":{\n", $7.code, ";\nif(", cond, ") goto l", num, ";\n}\n");
+																								}
+    	|FOR LPAREN expression_stmt expression_stmt expression RPAREN {is_loop = 1;} stmt 	{
+																								is_loop = 0; 
+																								char* cond = concat(1, $4.code);
+																								cond[strlen(cond)-1] = '\0'; 
+																								char num[50]; 
+																								sprintf(num, "%d", n_label); 
+																								n_label++;
+																								$$.code = concat(15, $3.code, "\nif(", cond, ") goto l", num, ";\nl", num, ":{\n", $8.code, $5.code, ";\nif(", cond, ") goto l", num, ";\n}\n");
+																							}
     ;
 
 if_block: IF LPAREN expression RPAREN stmt 			{ 
-														$$.ret = 0;
-														$$.code = concat(5, "if", "(", $3.code, ")", $5.code); 
+														$$.ret = 0; 
+
+														char num[50]; 
+														sprintf(num, "%d", n_label); 
+														n_label++;
+
+														$$.code = concat(9, "if", "(", $3.code, ") goto l", num, ";\nl", num, ":", $5.code); 
 													}	%prec LOWER_THAN_ELSE
 		|IF LPAREN expression RPAREN stmt ELSE stmt { 
+														char if_num[50], el_num[50]; 
+														sprintf(if_num, "%d", n_label); 
+														n_label++; 
+														sprintf(el_num, "%d", n_label); 
+														n_label++;
+
 														if ($5.ret == 1 && $7.ret == 1) {
 															$$.ret = 1;
 														}
-														$$.code = concat(7, "if", "(", $3.code, ")", $5.code, "else", $7.code);
+
+														$$.code = concat(15, "if", "(", $3.code, ") goto l", if_num, ";\nl", if_num, ":", $5.code, "goto l", el_num, ";\nl", el_num, ":", $7.code);
 													}
     ;
 
@@ -481,6 +510,7 @@ int main(int argc, char *argv[])
 	constant_table = create_table();
   	symbol_table_list[0].symbol_table = create_table();
 	yyin = fopen(argv[1], "r");
+	yyout= fopen("output.c","w"); 
 
 	if(!yyparse())
 	{
@@ -488,6 +518,8 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
+		fclose(yyout);
+		remove("./output.c");
 		printf("\nPARSING FAILED!\n\n\n");
 	}
 
@@ -505,6 +537,8 @@ int main(int argc, char *argv[])
 
 int yyerror(char *msg)
 {
+	fclose(yyout);
+	remove("./output.c");
 	printf("Line no: %d Error message: %s Token: %s\n", yylineno, msg, yytext);
 	exit(0);
 }

@@ -1,17 +1,24 @@
 int fun(int a, int b, int c)
 {
   int x;
-  
-
-  if (1) {
+  if(1){
     return 1;
-  } else {
-    return 5;
+  }
+  else{
+    return 2;
   }
 }
 
 int main()
 {
+
+  // int arr[-1];
+  // int arr1[0];
+  // int arr2[-1];
+  // break;
+  // arr[0] = 4;
+  // arr[-1] = 10;
+  // arr[11] = 2;
 
   int x = 1;
 
@@ -27,12 +34,18 @@ int main()
     {
       int w =1;
     }
+    //w=3;
   }
   char c='a';
+  for(x=2;x<y;)
+  {
+    int b;
+  }
   for(x=2;x<y;x++)
   {
+    int b;
   }
-  return 1;
+  return 3;
 
   // fun();
 
