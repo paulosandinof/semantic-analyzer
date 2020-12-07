@@ -1,0 +1,39 @@
+int fun(int a, int b, int c)
+{
+  int x;
+  
+
+  if (1) {
+    return 1;
+  } else {
+    return 5;
+  }
+}
+
+int main()
+{
+
+  int x = 1;
+
+  int y;
+  int z;
+
+  if(x<0)
+  {
+    int y;
+
+    int z=1;
+
+    {
+      int w =1;
+    }
+  }
+  char c='a';
+  for(x=2;x<y;x++)
+  {
+  }
+  return 1;
+
+  // fun();
+
+}

@@ -1,0 +1,35 @@
+/*
+Crie um programa que leia uma quantidade desconhecida de números e informe
+quantos deles estão nos seguintes intervalos fechados: [0, 25], [26, 50], 
+[51, 75] e [76, 100]. A entrada de dados deve terminar quando for lido um 
+número negativo.
+*/
+int main() {
+	int n = 1;
+	int c1 = 0;
+	int c2 = 0;
+	int c3 = 0;
+	int c4 = 0;
+
+	while(n > 0){
+		scan(n);
+		if(n >= 0 && n <= 25){
+			c1 = c1 + 1;
+		}
+		if(n >= 26 && n <= 50){
+			c2 = c2 + 1;
+		}
+		if(n >= 51 && n <= 75){
+			c3 = c3 + 1;
+		}
+		if(n >= 76 && n <= 100){
+			c4 = c4 + 1;
+		}
+	}
+	print(c1);
+	print(c2);
+	print(c3);
+	print(c4);
+
+	return 0;
+}

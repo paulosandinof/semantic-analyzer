@@ -8,7 +8,7 @@
 
 	#define SYMBOL_TABLE symbol_table_list[current_scope].symbol_table
 
-  extern entry_t** constant_table;
+  	extern entry_t** constant_table;
 
 	int current_dtype;
 
@@ -31,6 +31,7 @@
 {
 	int data_type;
 	entry_t* entry;
+	int ret;
 }
 
 %token <entry> IDENTIFIER
@@ -39,7 +40,7 @@
 
 %token STRING
 
-%token LOGICAL_AND LOGICAL_OR LESS_EQUAL_THAN MORE_EQUAL_THAN EQUAL DIFF
+%token LOGICAL_AND LOGICAL_OR LS_EQ GR_EQ EQ NOT_EQ
 
 %token MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN SUB_ASSIGN
 
@@ -47,7 +48,7 @@
 
 %token SHORT INT LONG LONG_LONG SIGNED UNSIGNED VOID CHAR FLOAT
 
-%token IF FOR WHILE RETURN
+%token IF FOR WHILE RETURN PRINT SCAN
 
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 
@@ -67,12 +68,18 @@
 %type <data_type> array_access
 %type <data_type> lhs
 
+%type <ret> single_stmt
+%type <ret> stmt
+%type <ret> if_block
+%type <ret> compound_stmt
+%type <ret> statements
+
 %left COMMA
 %right ASSIGN
 %left LOGICAL_OR
 %left LOGICAL_AND
-%left EQUAL DIFF
-%left LESS_THAN MORE_THAN LESS_EQUAL_THAN MORE_EQUAL_THAN
+%left EQ NOT_EQ
+%left LESS_THAN MORE_THAN LS_EQ GR_EQ
 %left PLUS MINUS
 %left MULT DIV MOD
 %right NOT
@@ -87,7 +94,8 @@
 
 /* Programa eh composto de varios blocos. */
 starter: starter builder
-		|builder;
+		|builder
+		;
 
 /* Cada bloco eh uma funcao ou declaracao */
 builder: function
@@ -95,39 +103,25 @@ builder: function
 		;
 
 /* Especificacao de funcao */
-function: 	type 
-			identifier 	{
-							func_type = current_dtype;
-							is_declaration = 0;
-							current_scope = create_new_scope();
-						}
-			LPAREN argument_list RPAREN {
-											is_declaration = 0;
-											fill_parameter_list($2,param_list,p_idx);
-											p_idx = 0;
-											is_func = 1;
-											p=1;
-										}
-			compound_stmt	{
-								is_func = 0;
+function: func_or_variable_declaration
+		compound_stmt	{
+							is_func = 0;
+
+							if ($2 == 0 && func_type != 283) {
+								yyerror("return statement not covering all branches");
 							}
-          ;
+						}
+        ;
 
-/* Especificacao de tipo */
-//TODO perguntar pq da erro tirar
-//TODO explicar do erro de return
-type : data_type {is_declaration = 1; }
-	;
-
-data_type : sign_specifier type_specifier
+data_type: sign_specifier type_specifier
     		|type_specifier
     		;
 
-sign_specifier : SIGNED
+sign_specifier: SIGNED
     			|UNSIGNED
     			;
 
-type_specifier :INT	{current_dtype = INT;}
+type_specifier: INT	{current_dtype = INT;}
     |SHORT INT      {current_dtype = SHORT;}
     |SHORT          {current_dtype = SHORT;}
     |LONG           {current_dtype = LONG;}
@@ -149,44 +143,52 @@ arguments : arguments COMMA arg
     		;
 
  /* Argumentos sao pares de tipo e id */
-arg : type identifier	{param_list[p_idx++] = $2->data_type;}
+arg : data_type {is_declaration = 1; } identifier {param_list[p_idx++] = $3->data_type;}
     ;
 
  /* Statement generico*/
-stmt:compound_stmt
-    | single_stmt
+stmt: compound_stmt { $$ = $1; }
+    | single_stmt 	{ $$ = $1; }
     ;
 
  /* O corpo da funcao esta entre chaves e tem multiplos statements */
-compound_stmt :
-				LBRACE	{
+compound_stmt: LBRACE	{
 							if(!p)current_scope = create_new_scope();
 							else p = 0;
 						}
-
-				statements
-
-				RBRACE 	{current_scope = exit_scope();}
+			statements
+			RBRACE 		{
+							current_scope = exit_scope();
+							$$ = $3;
+						}
     ;
 
-statements:statements stmt
-    |
+statements: statements stmt { 
+								if ($1 == 1 || $2 == 1) {
+									$$ = 1;
+								} 
+							}
+    | { $$ = 0; }
     ;
 
-single_stmt :if_block
-    		|for_block
-    		|while_block
-    		|declaration
-    		|function_call SEMICOLON
-			|RETURN SEMICOLON	{
-									if(is_func)
-									{
-										if(func_type != VOID)
-											yyerror("return type (VOID) does not match function type");
-									}
-									else yyerror("return statement not inside function definition");
-								}
+single_stmt: if_block 					{ $$ = $1; }
+    		|for_block 					{ $$ = 0; }
+    		|while_block 				{ $$ = 0; }
+    		|declaration 				{ $$ = 0; }
+			|print_call					{ $$ = 0; }
+			|scan_call					{ $$ = 0; }
+    		|function_call SEMICOLON 	{ $$ = 0; }
+			|RETURN SEMICOLON			{
+											$$ = 1;
+											if(is_func)
+											{
+												if(func_type != VOID)
+													yyerror("return type (VOID) does not match function type");
+											}
+											else yyerror("return statement not inside function definition");
+										}
 			|RETURN sub_expr SEMICOLON	{
+											$$ = 1;
 											if(is_func)
 											{
 												if(func_type != $2)
@@ -196,22 +198,48 @@ single_stmt :if_block
 										}
     ;
 
-for_block:FOR LPAREN expression_stmt  expression_stmt RPAREN {is_loop = 1;} stmt {is_loop = 0;}
+print_call: PRINT LPAREN IDENTIFIER RPAREN SEMICOLON
+    ;
+scan_call: SCAN LPAREN IDENTIFIER RPAREN SEMICOLON
+    ;
+
+for_block: FOR LPAREN expression_stmt  expression_stmt RPAREN {is_loop = 1;} stmt {is_loop = 0;}
     	|FOR LPAREN expression_stmt expression_stmt expression RPAREN {is_loop = 1;} stmt {is_loop = 0;}
     ;
 
-if_block:IF LPAREN expression RPAREN stmt 				%prec LOWER_THAN_ELSE
-		|IF LPAREN expression RPAREN stmt ELSE stmt
+if_block: IF LPAREN expression RPAREN stmt 			{ $$ = 0; }		%prec LOWER_THAN_ELSE
+		|IF LPAREN expression RPAREN stmt ELSE stmt { 
+														if ($5 == 1 && $7 == 1) {
+															$$ = 1;
+														} 
+													}
     ;
 
 while_block: WHILE LPAREN expression RPAREN {is_loop = 1;} stmt {is_loop = 0;}
 	;
 
-declaration: type  declaration_list SEMICOLON {is_declaration = 0; }
+func_or_variable_declaration: data_type {is_declaration = 1;} func_or_variable_id
+	;
+
+func_or_variable_id: identifier 		{
+											func_type = current_dtype;
+											is_declaration = 0;
+											current_scope = create_new_scope();
+										}
+		LPAREN argument_list RPAREN 	{
+											is_declaration = 0;
+											fill_parameter_list($1,param_list,p_idx);
+											p_idx = 0;
+											is_func = 1;
+											p=1;
+										}
+		|declaration_list SEMICOLON 	{is_declaration = 0;}
+	;
+
+declaration: func_or_variable_declaration
 			|declaration_list SEMICOLON
 			|unary_expr SEMICOLON
 	;
-
 
 declaration_list: declaration_list COMMA sub_decl
 				|sub_decl
@@ -233,10 +261,10 @@ expression: expression COMMA sub_expr
 
 sub_expr: sub_expr MORE_THAN sub_expr		{type_check($1,$3,2); $$ = $1;}
     	|sub_expr LESS_THAN sub_expr		{type_check($1,$3,2); $$ = $1;}
-    	|sub_expr EQUAL sub_expr			{type_check($1,$3,2); $$ = $1;}
-    	|sub_expr DIFF sub_expr				{type_check($1,$3,2); $$ = $1;}
-    	|sub_expr LESS_EQUAL_THAN sub_expr			{type_check($1,$3,2); $$ = $1;}
-    	|sub_expr MORE_EQUAL_THAN sub_expr			{type_check($1,$3,2); $$ = $1;}
+    	|sub_expr EQ sub_expr				{type_check($1,$3,2); $$ = $1;}
+    	|sub_expr NOT_EQ sub_expr			{type_check($1,$3,2); $$ = $1;}
+    	|sub_expr LS_EQ sub_expr			{type_check($1,$3,2); $$ = $1;}
+    	|sub_expr GR_EQ sub_expr			{type_check($1,$3,2); $$ = $1;}
 		|sub_expr LOGICAL_AND sub_expr		{type_check($1,$3,2); $$ = $1;}
 		|sub_expr LOGICAL_OR sub_expr		{type_check($1,$3,2); $$ = $1;}
 		|NOT sub_expr						{$$ = $2;}
@@ -247,10 +275,10 @@ sub_expr: sub_expr MORE_THAN sub_expr		{type_check($1,$3,2); $$ = $1;}
 
 
 assignment_expr: lhs assign_op arithmetic_expr		{type_check($1,$3,1); $$ = $3; rhs=0;}
-    			|lhs assign_op array_access			{type_check($1,$3,1); $$ = $3;rhs=0;}
-    			|lhs assign_op function_call		{type_check($1,$3,1); $$ = $3;rhs=0;}
-				|lhs assign_op unary_expr			{type_check($1,$3,1); $$ = $3;rhs=0;}
-				|unary_expr assign_op unary_expr	{type_check($1,$3,1); $$ = $3;rhs=0;}
+    			|lhs assign_op array_access			{type_check($1,$3,1); $$ = $3; rhs=0;}
+    			|lhs assign_op function_call		{type_check($1,$3,1); $$ = $3; rhs=0;}
+				|lhs assign_op unary_expr			{type_check($1,$3,1); $$ = $3; rhs=0;}
+				|unary_expr assign_op unary_expr	{type_check($1,$3,1); $$ = $3; rhs=0;}
     ;
 
 unary_expr:	identifier INCREMENT	{$$ = $1->data_type;}
@@ -278,7 +306,7 @@ identifier: IDENTIFIER  {
                     	}
     ;
 
-assign_op:ASSIGN		{rhs=1;}
+assign_op: ASSIGN		{rhs=1;}
     	|ADD_ASSIGN 	{rhs=1;} 
     	|SUB_ASSIGN 	{rhs=1;}
     	|MUL_ASSIGN 	{rhs=1;}
@@ -381,28 +409,34 @@ int main(int argc, char *argv[])
 	constant_table = create_table();
   	symbol_table_list[0].symbol_table = create_table();
 	yyin = fopen(argv[1], "r");
-
+	yyout=fopen("output.c","w"); 
 	if(!yyparse())
 	{
 		printf("\nPARSING COMPLETE\n\n\n");
 	}
 	else
 	{
+		fclose(yyout);
+		remove("./output.c");
 		printf("\nPARSING FAILED!\n\n\n");
 	}
 
+	/*
 	printf("SYMBOL TABLES\n\n");
 	display_all();
 
 	printf("CONSTANT TABLE");
 	display_constant_table(constant_table);
-
+	*/
+	
 	fclose(yyin);
 	return 0;
 }
 
 int yyerror(char *msg)
 {
+	fclose(yyout);
+	remove("./output.c");
 	printf("Line no: %d Error message: %s Token: %s\n", yylineno, msg, yytext);
 	exit(0);
 }

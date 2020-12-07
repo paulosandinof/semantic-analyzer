@@ -1,0 +1,21 @@
+/*
+OK
+Crie um programa que, dados três valores numéricos x, y e c, onde x e y são
+números racionais e c é um número inteiro, previamente armazenados no código-
+fonte, avalia a expressão x^2 − y + c e imprime seu resultado na tela.
+*/
+
+float pow(float x){
+    float result = x*x;
+    return result;
+}
+int main(){
+    float x, y;
+    float c;
+
+    float d = pow(x);
+    float resul = d - y + c;
+    print(resul);
+
+    return 0;
+}
