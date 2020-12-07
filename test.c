@@ -1,6 +1,7 @@
 int fun(int a, int b, int c)
 {
   int x;
+  return 1;
 }
 
 int main()
@@ -19,23 +20,23 @@ int main()
   int y;
   int z;
 
-  if(x<0)
+  if (x < 0)
   {
     int y;
 
-    int z=1;
+    int z = 1;
 
     {
-      int w =1;
+      int w = 1;
     }
     //w=3;
+    return 1;
   }
-  char c='a';
-  for(x=2;x<y;x++)
+  char c = 'a';
+  for (x=2; x< y; x++)
   {
   }
   return 3;
 
   // fun();
-
 }

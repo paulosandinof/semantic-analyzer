@@ -50,7 +50,7 @@
 
 %token SHORT INT LONG LONG_LONG SIGNED UNSIGNED VOID CHAR FLOAT
 
-%token IF FOR WHILE RETURN
+%token IF FOR WHILE RETURN PRINT SCAN
 
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 
@@ -96,6 +96,8 @@
 %type <types> function
 %type <types> builder
 %type <types> starter
+%type <types> print_call
+%type <types> scan_call
 
 %left COMMA
 %right ASSIGN
@@ -209,6 +211,8 @@ single_stmt: if_block 					{ $$.ret = $1.ret; $$.code = $1.code; }
     		|for_block 					{ $$.ret = 0; $$.code = $$.code; }
     		|while_block 				{ $$.ret = 0; $$.code = $1.code; }
     		|declaration 				{ $$.ret = 0; $$.code = $1.code; }
+			|print_call					{ $$.ret = 0; $$.code = $1.code; }
+			|scan_call					{ $$.ret = 0; $$.code = $1.code; }
     		|function_call SEMICOLON 	{ $$.ret = 0; $$.code = concat(2, $1.code, ";\n"); }
 			|RETURN SEMICOLON			{
 											$$.ret = 1;
@@ -236,10 +240,50 @@ single_stmt: if_block 					{ $$.ret = $1.ret; $$.code = $1.code; }
 										}
     ;
 
+print_call: PRINT LPAREN identifier RPAREN SEMICOLON	{	
+															char *type = " ";
+															
+															switch($3->data_type){
+																case 277:
+																	type = "i";
+																	break;
+																case 283:
+																	type = "c";
+																	break;
+																case 284:
+																	type = "f";
+																	break;
+															}
+
+															$$.code=concat(5, "printf(\"%",  type ,"\", ", $3->lexeme, ");\n");
+														}
+    ;
+scan_call: SCAN LPAREN identifier RPAREN SEMICOLON		{	char *type = " ";
+															
+															switch($3->data_type){
+																case 277:
+																	type = "i";
+																	break;
+																case 283:
+																	type = "c";
+																	break;
+																case 284:
+																	type = "f";
+																	break;
+															}
+
+															$$.code=concat(5, "scanf(\"%",  type ,"\", ", $3->lexeme, ");\n"); 	}
+    ;
+
 for_block: FOR LPAREN expression_stmt  expression_stmt RPAREN {is_loop = 1;} stmt 			{
 																								is_loop = 0;  
 																								char* cond = concat(1, $4.code);
-																								cond[strlen(cond)-1] = '\0';
+
+																								for(int i=0; i<strlen(cond)-1; i++){
+																									if(cond[i] == ';')
+																										cond[i] = '\0';
+																								}
+
 																								char num[50]; 
 																								sprintf(num, "%d", n_label); 
 																								n_label++;
@@ -248,7 +292,12 @@ for_block: FOR LPAREN expression_stmt  expression_stmt RPAREN {is_loop = 1;} stm
     	|FOR LPAREN expression_stmt expression_stmt expression RPAREN {is_loop = 1;} stmt 	{
 																								is_loop = 0; 
 																								char* cond = concat(1, $4.code);
-																								cond[strlen(cond)-1] = '\0'; 
+
+																								for(int i=0; i<strlen(cond)-1; i++){
+																									if(cond[i] == ';')
+																										cond[i] = '\0';
+																								}
+
 																								char num[50]; 
 																								sprintf(num, "%d", n_label); 
 																								n_label++;
@@ -280,7 +329,14 @@ if_block: IF LPAREN expression RPAREN stmt 			{
 													}
     ;
 
-while_block: WHILE LPAREN expression RPAREN {is_loop = 1;} stmt {is_loop = 0; $$.code = concat(5, "while", "(", $3.code, ")", $6.code); }
+while_block: WHILE LPAREN expression RPAREN {is_loop = 1;} stmt {
+																	is_loop = 0; 
+																	char num[50]; 
+																	sprintf(num, "%d", n_label); 
+																	n_label++; 
+
+																	$$.code = concat(14, "if", "(", $3.code, ") goto l", num, ";\nl", num, ":{\n", $6.code, ";\nif(", $3.code, ") goto l", num, ";\n}\n");
+																}
 	;
 
 func_or_variable_declaration: data_type {is_declaration = 1;} func_or_variable_id	{ $$.code = concat(3, $1.code, " ", $3.code); }

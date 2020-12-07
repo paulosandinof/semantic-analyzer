@@ -35,8 +35,8 @@ hex [0-9a-f]
 "return"                          {return RETURN;}
 "{"                               {return (LBRACE);}
 "}"                               {return (RBRACE);}
-"("	                              {return (LPAREN);}
-")"	                              {return (RPAREN);}
+"("	                            {return (LPAREN);}
+")"	                            {return (RPAREN);}
 "["                               {return (LBRACKET);}
 "]"                               {return (RBRACKET);}
 ","                               {return (COMMA);}
@@ -47,6 +47,9 @@ hex [0-9a-f]
 "/"                               {return (DIV);}
 "%"                               {return (MOD);}
 "="                               {return (ASSIGN);}
+
+print                             {return PRINT;}
+scan                              {return SCAN;}
 
 {identifier}                      {return IDENTIFIER;}
 {ws}                              ;
@@ -70,24 +73,24 @@ hex [0-9a-f]
 
 "--"			                      {return DECREMENT;}
 "++"			                      {return INCREMENT;}
-"+="                            {return ADD_ASSIGN;}
-"-="                            {return SUB_ASSIGN;}
-"*="                            {return MUL_ASSIGN;}
-"/="                            {return DIV_ASSIGN;}
-"%="                            {return MOD_ASSIGN;}
+"+="                              {return ADD_ASSIGN;}
+"-="                              {return SUB_ASSIGN;}
+"*="                              {return MUL_ASSIGN;}
+"/="                              {return DIV_ASSIGN;}
+"%="                              {return MOD_ASSIGN;}
 
 
-"&&" | "and"			              {return LOGICAL_AND;}
-"||" | "or"	                    {return LOGICAL_OR;}
+"&&"			                      {return LOGICAL_AND;}
+"||"                              {return LOGICAL_OR;}
 "<="			                      {return LS_EQ;}
 ">="			                      {return GR_EQ;}
-"<"                             {return (LESS_THAN);}
-">"                             {return (MORE_THAN);}
+"<"                               {return (LESS_THAN);}
+">"                               {return (MORE_THAN);}
 
 "=="			                      {return EQ;}
-"!="		                        {return NOT_EQ;}
+"!="		                         {return NOT_EQ;}
 
-.                               {return yytext[0];}
+.                                 {return yytext[0];}
 %%
 
 #ifndef yywrap
