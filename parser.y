@@ -1,6 +1,7 @@
 %{
 	#include <stdlib.h>
 	#include <stdio.h>
+	#include <stdarg.h>
 	int yyerror(char *msg);
 
 	#include "symboltable.h"
@@ -9,6 +10,8 @@
 	#define SYMBOL_TABLE symbol_table_list[current_scope].symbol_table
 
   	extern entry_t** constant_table;
+
+	char *concat(int count, ...);
 
 	int current_dtype;
 
@@ -31,14 +34,12 @@
 {
 	int data_type;
 	entry_t* entry;
-	int ret;
+	types_t types;
 }
 
 %token <entry> IDENTIFIER
 
 %token <entry> DEC_CONSTANT HEX_CONSTANT CHAR_CONSTANT FLOAT_CONSTANT
-
-%token STRING
 
 %token LOGICAL_AND LOGICAL_OR LS_EQ GR_EQ EQ NOT_EQ
 
@@ -48,7 +49,7 @@
 
 %token SHORT INT LONG LONG_LONG SIGNED UNSIGNED VOID CHAR FLOAT
 
-%token IF FOR WHILE RETURN PRINT SCAN
+%token IF FOR WHILE RETURN
 
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 
@@ -60,19 +61,40 @@
 %type <entry> constant
 %type <entry> array_index
 
-%type <data_type> sub_expr
-%type <data_type> unary_expr
-%type <data_type> arithmetic_expr
-%type <data_type> assignment_expr
-%type <data_type> function_call
-%type <data_type> array_access
-%type <data_type> lhs
+%type <types> sub_expr
+%type <types> unary_expr
+%type <types> arithmetic_expr
+%type <types> assignment_expr
+%type <types> function_call
+%type <types> array_access
+%type <types> lhs
 
-%type <ret> single_stmt
-%type <ret> stmt
-%type <ret> if_block
-%type <ret> compound_stmt
-%type <ret> statements
+%type <types> single_stmt
+%type <types> stmt
+%type <types> if_block
+%type <types> compound_stmt
+%type <types> statements
+
+%type <types> parameter_list
+%type <types> assign_op
+%type <types> expression
+%type <types> expression_stmt
+%type <types> sub_decl
+%type <types> declaration_list
+%type <types> declaration
+%type <types> func_or_variable_declaration
+%type <types> func_or_variable_id
+%type <types> data_type
+%type <types> type_specifier
+%type <types> sign_specifier
+%type <types> while_block
+%type <types> for_block
+%type <types> arg
+%type <types> arguments
+%type <types> argument_list
+%type <types> function
+%type <types> builder
+%type <types> starter
 
 %left COMMA
 %right ASSIGN
@@ -89,17 +111,21 @@
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 
+%start printer
 
 %%
 
+printer: starter { printf("%s", $1.code); }
+	;
+
 /* Programa eh composto de varios blocos. */
-starter: starter builder
-		|builder
+starter: starter builder 	{ $$.code = concat(2, $1.code, $2.code); }
+		|builder			{ $$.code = $1.code; }
 		;
 
 /* Cada bloco eh uma funcao ou declaracao */
-builder: function
-		|declaration
+builder: function		{ $$.code = $1.code; }
+		|declaration	{ $$.code = $1.code; }
 		;
 
 /* Especificacao de funcao */
@@ -107,43 +133,45 @@ function: func_or_variable_declaration
 		compound_stmt	{
 							is_func = 0;
 
-							if ($2 == 0 && func_type != 283) {
+							if ($2.ret == 0 && func_type != 283) {
 								yyerror("return statement not covering all branches");
 							}
+
+							$$.code = concat(2, $1.code, $2.code);
 						}
         ;
 
-data_type: sign_specifier type_specifier
-    		|type_specifier
+data_type: sign_specifier type_specifier	{ $$.code = concat(2, $1.code, $2.code); }
+    		|type_specifier					{ $$.code = $1.code; }
     		;
 
-sign_specifier: SIGNED
-    			|UNSIGNED
+sign_specifier: SIGNED		{ $$.code = "signed "; }
+    			|UNSIGNED	{ $$.code = "unsigned "; }
     			;
 
-type_specifier: INT	{current_dtype = INT;}
-    |SHORT INT      {current_dtype = SHORT;}
-    |SHORT          {current_dtype = SHORT;}
-    |LONG           {current_dtype = LONG;}
-	|LONG INT       {current_dtype = LONG;}
-    |LONG_LONG      {current_dtype = LONG_LONG;}
-    |LONG_LONG INT  {current_dtype = LONG_LONG;}
-	|CHAR 			{current_dtype = CHAR;}
-	|FLOAT 			{current_dtype = FLOAT;}
-	|VOID			{current_dtype = VOID;}
+type_specifier: INT	{current_dtype = INT; $$.code = "int"; }
+    |SHORT INT      {current_dtype = SHORT; $$.code = "short int"; }
+    |SHORT          {current_dtype = SHORT; $$.code = "short"; }
+    |LONG           {current_dtype = LONG; $$.code = "long"; }
+	|LONG INT       {current_dtype = LONG; $$.code = "long int"; }
+    |LONG_LONG      {current_dtype = LONG_LONG; $$.code = "long long"; }
+    |LONG_LONG INT  {current_dtype = LONG_LONG; $$.code = "long long int"; }
+	|CHAR 			{current_dtype = CHAR; $$.code = "char"; }
+	|FLOAT 			{current_dtype = FLOAT; $$.code = "float"; }
+	|VOID			{current_dtype = VOID; $$.code = "void"; }
     ;
 
  /* Regras para lista de argumento */
-argument_list : arguments
-    			|
+argument_list : arguments	{ $$.code = $1.code; }
+    			|			{ $$.code = ""; }
     			;
  /* Argumentos sao separados por virgula*/
-arguments : arguments COMMA arg
-    		|arg
+arguments : arguments COMMA arg	{ $$.code = concat(3, $1.code, ", ", $3.code); }
+    		|arg				{ $$.code = $1.code; }
     		;
 
  /* Argumentos sao pares de tipo e id */
-arg : data_type {is_declaration = 1; } identifier {param_list[p_idx++] = $3->data_type;}
+arg : data_type {is_declaration = 1; } identifier {param_list[p_idx++] = $3->data_type; $$.code = concat(3, $1.code, " ", $3->lexeme); }
     ;
 
  /* Statement generico*/
@@ -160,65 +188,73 @@ compound_stmt: LBRACE	{
 			RBRACE 		{
 							current_scope = exit_scope();
 							$$ = $3;
+							$$.code = concat(3, "{\n", $3.code, "\n}\n");
 						}
     ;
 
 statements: statements stmt { 
-								if ($1 == 1 || $2 == 1) {
-									$$ = 1;
-								} 
+								if ($1.ret == 1 || $2.ret == 1) {
+									$$.ret = 1;
+								}
+								$$.code = concat(2, $1.code, $2.code);
 							}
-    | { $$ = 0; }
+    |	{ 
+			$$.ret = 0;
+			$$.code = ""; 
+		}
     ;
 
-single_stmt: if_block 					{ $$ = $1; }
-    		|for_block 					{ $$ = 0; }
-    		|while_block 				{ $$ = 0; }
-    		|declaration 				{ $$ = 0; }
-			|print_call					{ $$ = 0; }
-			|scan_call					{ $$ = 0; }
-    		|function_call SEMICOLON 	{ $$ = 0; }
+single_stmt: if_block 					{ $$.ret = $1.ret; $$.code = $1.code; }
+    		|for_block 					{ $$.ret = 0; $$.code = $$.code; }
+    		|while_block 				{ $$.ret = 0; $$.code = $1.code; }
+    		|declaration 				{ $$.ret = 0; $$.code = $1.code; }
+    		|function_call SEMICOLON 	{ $$.ret = 0; $$.code = concat(2, $1.code, ";\n"); }
 			|RETURN SEMICOLON			{
-											$$ = 1;
-											if(is_func)
-											{
-												if(func_type != VOID)
+											$$.ret = 1;
+											if(is_func) {
+												if(func_type != VOID) {
 													yyerror("return type (VOID) does not match function type");
-											}
-											else yyerror("return statement not inside function definition");
+												}
+											} else {
+												yyerror("return statement not inside function definition");
+											};
+
+											$$.code = "return;";
 										}
 			|RETURN sub_expr SEMICOLON	{
-											$$ = 1;
-											if(is_func)
-											{
-												if(func_type != $2)
+											$$.ret = 1;
+											if(is_func) {
+												if(func_type != $2.data_type) {
 													yyerror("return type does not match function type");
+												}
+											} else {
+												yyerror("return statement not in function definition");
 											}
-											else yyerror("return statement not in function definition");
+
+											$$.code = concat(3, "return ", $2.code, ";\n");
 										}
     ;
 
-print_call: PRINT LPAREN IDENTIFIER RPAREN SEMICOLON
-    ;
-scan_call: SCAN LPAREN IDENTIFIER RPAREN SEMICOLON
-    ;
-
-for_block: FOR LPAREN expression_stmt  expression_stmt RPAREN {is_loop = 1;} stmt {is_loop = 0;}
-    	|FOR LPAREN expression_stmt expression_stmt expression RPAREN {is_loop = 1;} stmt {is_loop = 0;}
+for_block: FOR LPAREN expression_stmt  expression_stmt RPAREN {is_loop = 1;} stmt {is_loop = 0; $$.code = concat(6, "for", "(", $3.code, $4.code, ")", $7.code); }
+    	|FOR LPAREN expression_stmt expression_stmt expression RPAREN {is_loop = 1;} stmt {is_loop = 0; $$.code = concat(7, "for", "(", $3.code, $4.code, $5.code, ")", $8.code);}
     ;
 
-if_block: IF LPAREN expression RPAREN stmt 			{ $$ = 0; }		%prec LOWER_THAN_ELSE
+if_block: IF LPAREN expression RPAREN stmt 			{ 
+														$$.ret = 0;
+														$$.code = concat(5, "if", "(", $3.code, ")", $5.code); 
+													}	%prec LOWER_THAN_ELSE
 		|IF LPAREN expression RPAREN stmt ELSE stmt { 
-														if ($5 == 1 && $7 == 1) {
-															$$ = 1;
-														} 
+														if ($5.ret == 1 && $7.ret == 1) {
+															$$.ret = 1;
+														}
+														$$.code = concat(7, "if", "(", $3.code, ")", $5.code, "else", $7.code);
 													}
     ;
 
-while_block: WHILE LPAREN expression RPAREN {is_loop = 1;} stmt {is_loop = 0;}
+while_block: WHILE LPAREN expression RPAREN {is_loop = 1;} stmt {is_loop = 0; $$.code = concat(5, "while", "(", $3.code, ")", $6.code); }
 	;
 
-func_or_variable_declaration: data_type {is_declaration = 1;} func_or_variable_id
+func_or_variable_declaration: data_type {is_declaration = 1;} func_or_variable_id	{ $$.code = concat(3, $1.code, " ", $3.code); }
 	;
 
 func_or_variable_id: identifier 		{
@@ -232,63 +268,68 @@ func_or_variable_id: identifier 		{
 											p_idx = 0;
 											is_func = 1;
 											p=1;
+
+											$$.code = concat(4, $1->lexeme, "(", $4.code, ")");
 										}
-		|declaration_list SEMICOLON 	{is_declaration = 0;}
+		|declaration_list SEMICOLON 	{
+											is_declaration = 0;
+											$$.code = concat(2, $1.code, ";\n");
+										}
 	;
 
-declaration: func_or_variable_declaration
-			|declaration_list SEMICOLON
-			|unary_expr SEMICOLON
+declaration: func_or_variable_declaration	{ $$.code = $1.code; }
+			|declaration_list SEMICOLON		{ $$.code = concat(2, $1.code, ";\n"); }
+			|unary_expr SEMICOLON			{ $$.code = concat(2, $1.code, ";\n"); }
 	;
 
-declaration_list: declaration_list COMMA sub_decl
-				|sub_decl
+declaration_list: declaration_list COMMA sub_decl	{ $$.code = concat(3, $1.code, ", ", $3.code); }
+				|sub_decl							{ $$.code = $1.code; }
 	;
 
-sub_decl: assignment_expr
-    	|identifier
-    	|array_access
+sub_decl: assignment_expr	{ $$.code = $1.code; }
+    	|identifier			{ $$.data_type = $1->data_type; $$.code = $1->lexeme; }
+    	|array_access		{ $$.code = $1.code; }
 	;
 
 /* Podemos ter expressoes vazias dentro de loops */
-expression_stmt: expression SEMICOLON
-    			|SEMICOLON
+expression_stmt: expression SEMICOLON	{ $$.code = concat(2, $1.code, ";"); }
+    			|SEMICOLON 				{ $$.code = ";"; }
     ;
 
-expression: expression COMMA sub_expr
-    		|sub_expr
+expression: expression COMMA sub_expr	{ $$.code = concat(3, $1.code, ", ", $3.code); }
+    		|sub_expr					{ $$.code = $1.code; }
 	;
 
-sub_expr: sub_expr MORE_THAN sub_expr		{type_check($1,$3,2); $$ = $1;}
-    	|sub_expr LESS_THAN sub_expr		{type_check($1,$3,2); $$ = $1;}
-    	|sub_expr EQ sub_expr				{type_check($1,$3,2); $$ = $1;}
-    	|sub_expr NOT_EQ sub_expr			{type_check($1,$3,2); $$ = $1;}
-    	|sub_expr LS_EQ sub_expr			{type_check($1,$3,2); $$ = $1;}
-    	|sub_expr GR_EQ sub_expr			{type_check($1,$3,2); $$ = $1;}
-		|sub_expr LOGICAL_AND sub_expr		{type_check($1,$3,2); $$ = $1;}
-		|sub_expr LOGICAL_OR sub_expr		{type_check($1,$3,2); $$ = $1;}
-		|NOT sub_expr						{$$ = $2;}
-		|arithmetic_expr					{$$ = $1;}
-    	|assignment_expr					{$$ = $1;}
-		|unary_expr							{$$ = $1;}
+sub_expr: sub_expr MORE_THAN sub_expr		{ type_check($1.data_type, $3.data_type, 2); $$.data_type = $1.data_type; $$.code = concat(3, $1.code, " > ", $3.code); }
+    	|sub_expr LESS_THAN sub_expr		{ type_check($1.data_type, $3.data_type, 2); $$.data_type = $1.data_type; $$.code = concat(3, $1.code, " < ", $3.code); }
+    	|sub_expr EQ sub_expr				{ type_check($1.data_type, $3.data_type, 2); $$.data_type = $1.data_type; $$.code = concat(3, $1.code, " == ", $3.code); }
+    	|sub_expr NOT_EQ sub_expr			{ type_check($1.data_type, $3.data_type, 2); $$.data_type = $1.data_type; $$.code = concat(3, $1.code, " != ", $3.code); }
+    	|sub_expr LS_EQ sub_expr			{ type_check($1.data_type, $3.data_type, 2); $$.data_type = $1.data_type; $$.code = concat(3, $1.code, " <= ", $3.code); }
+    	|sub_expr GR_EQ sub_expr			{ type_check($1.data_type, $3.data_type, 2); $$.data_type = $1.data_type; $$.code = concat(3, $1.code, " >= ", $3.code); }
+		|sub_expr LOGICAL_AND sub_expr		{ type_check($1.data_type, $3.data_type, 2); $$.data_type = $1.data_type; $$.code = concat(3, $1.code, " && ", $3.code); }
+		|sub_expr LOGICAL_OR sub_expr		{ type_check($1.data_type, $3.data_type, 2); $$.data_type = $1.data_type; $$.code = concat(3, $1.code, " || ", $3.code); }
+		|NOT sub_expr						{ $$.data_type = $2.data_type; $$.code = concat(2, "!", $2.code); }
+		|arithmetic_expr					{ $$.data_type = $1.data_type; $$.code = $1.code; }
+    	|assignment_expr					{ $$.data_type = $1.data_type; $$.code = $1.code; }
+		|unary_expr							{ $$.data_type = $1.data_type; $$.code = $1.code; }
     ;
 
 
-assignment_expr: lhs assign_op arithmetic_expr		{type_check($1,$3,1); $$ = $3; rhs=0;}
-    			|lhs assign_op array_access			{type_check($1,$3,1); $$ = $3; rhs=0;}
-    			|lhs assign_op function_call		{type_check($1,$3,1); $$ = $3; rhs=0;}
-				|lhs assign_op unary_expr			{type_check($1,$3,1); $$ = $3; rhs=0;}
-				|unary_expr assign_op unary_expr	{type_check($1,$3,1); $$ = $3; rhs=0;}
+assignment_expr: lhs assign_op arithmetic_expr		{type_check($1.data_type, $3.data_type, 1); $$.data_type = $3.data_type; rhs=0; $$.code = concat(3, $1.code, $2.code, $3.code); }
+    			|lhs assign_op array_access			{type_check($1.data_type, $3.data_type, 1); $$.data_type = $3.data_type; rhs=0; $$.code = concat(3, $1.code, $2.code, $3.code); }
+    			|lhs assign_op function_call		{type_check($1.data_type, $3.data_type, 1); $$.data_type = $3.data_type; rhs=0; $$.code = concat(3, $1.code, $2.code, $3.code); }
+				|lhs assign_op unary_expr			{type_check($1.data_type, $3.data_type, 1); $$.data_type = $3.data_type; rhs=0; $$.code = concat(3, $1.code, $2.code, $3.code); }
+				|unary_expr assign_op unary_expr	{type_check($1.data_type, $3.data_type, 1); $$.data_type = $3.data_type; rhs=0; $$.code = concat(3, $1.code, $2.code, $3.code); }
     ;
 
-unary_expr:	identifier INCREMENT	{$$ = $1->data_type;}
-			|identifier DECREMENT	{$$ = $1->data_type;}
-			|DECREMENT identifier	{$$ = $2->data_type;}
-			|INCREMENT identifier	{$$ = $2->data_type;}
+unary_expr:	identifier INCREMENT	{$$.data_type = $1->data_type; $$.code = concat(2, $1->lexeme, "++"); }
+			|identifier DECREMENT	{$$.data_type = $1->data_type; $$.code = concat(2, $1->lexeme, "--"); }
+			|DECREMENT identifier	{$$.data_type = $2->data_type; $$.code = concat(2, "--", $2->lexeme); }
+			|INCREMENT identifier	{$$.data_type = $2->data_type; $$.code = concat(2, "++", $2->lexeme); }
 	;
 
-lhs: identifier		{$$ = $1->data_type;}
-   |array_access	{$$ = $1;}
+lhs: identifier		{$$.data_type = $1->data_type; $$.code = $1->lexeme;}
+   |array_access	{$$.data_type = $1.data_type; $$.code = $1.code;}
 	;
 
 identifier: IDENTIFIER  {
@@ -306,23 +347,23 @@ identifier: IDENTIFIER  {
                     	}
     ;
 
-assign_op: ASSIGN		{rhs=1;}
-    	|ADD_ASSIGN 	{rhs=1;} 
-    	|SUB_ASSIGN 	{rhs=1;}
-    	|MUL_ASSIGN 	{rhs=1;}
-    	|DIV_ASSIGN 	{rhs=1;}
-    	|MOD_ASSIGN 	{rhs=1;}
+assign_op: ASSIGN		{rhs=1; $$.code = " = "; }
+    	|ADD_ASSIGN 	{rhs=1; $$.code = " += "; } 
+    	|SUB_ASSIGN 	{rhs=1; $$.code = " -= "; }
+    	|MUL_ASSIGN 	{rhs=1; $$.code = " *= "; }
+    	|DIV_ASSIGN 	{rhs=1; $$.code = " /= "; }
+    	|MOD_ASSIGN 	{rhs=1; $$.code = " %= "; }
     ;
 
-arithmetic_expr: arithmetic_expr PLUS arithmetic_expr	{type_check($1,$3,0);}
-    			|arithmetic_expr MINUS arithmetic_expr	{type_check($1,$3,0);}
-    			|arithmetic_expr MULT arithmetic_expr	{type_check($1,$3,0);}
-    			|arithmetic_expr DIV arithmetic_expr	{type_check($1,$3,0);}
-				|arithmetic_expr MOD arithmetic_expr	{type_check($1,$3,0);}
-				|LPAREN arithmetic_expr RPAREN			{$$ = $2;}
-    			|MINUS arithmetic_expr %prec UMINUS		{$$ = $2;}
-    			|identifier								{$$ = $1->data_type;}
-    			|constant								{$$ = $1->data_type;}
+arithmetic_expr: arithmetic_expr PLUS arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(2, $1.code, " + ", $3.code); }
+    			|arithmetic_expr MINUS arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(2, $1.code, " - ", $3.code); }
+    			|arithmetic_expr MULT arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(2, $1.code, " * ", $3.code); }
+    			|arithmetic_expr DIV arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(2, $1.code, " / ", $3.code); }
+				|arithmetic_expr MOD arithmetic_expr	{type_check($1.data_type, $3.data_type, 0); $$.code = concat(2, $1.code, " % ", $3.code); }
+				|LPAREN arithmetic_expr RPAREN			{$$.data_type = $2.data_type; $$.code = concat(3, "(", $2.code, ")"); }
+    			|MINUS arithmetic_expr %prec UMINUS		{$$.data_type = $2.data_type; $$.code = concat(2, "-", $2.code); }
+    			|identifier								{$$.data_type = $1->data_type; $$.code = $1->lexeme; }
+    			|constant								{$$.data_type = $1->data_type; $$.code = $1->lexeme; }
     ;
 
 constant: DEC_CONSTANT 	{$1->is_constant=1; $$ = $1;}
@@ -332,29 +373,26 @@ constant: DEC_CONSTANT 	{$1->is_constant=1; $$ = $1;}
     ;
 
 array_access: identifier LBRACKET array_index RBRACKET	{
-															if(is_declaration)
-															{
+															if(is_declaration) {
 																if($3->value <= 0)
 																	yyerror("size of array is not positive");
 																else
                                                                 	if($3->is_constant && !rhs)
 																		$1->array_dimension = $3->value;
-																	else if(rhs)
-																	{
+																	else if(rhs) {
 																		if($3->value > $1->array_dimension)
 																			yyerror("Array index out of bound");
 																		if($3->value < 0)
 																			yyerror("Array index cannot be negative");
 																	}
-															}
-															else if($3->is_constant)
-															{
+															} else if($3->is_constant) {
 																if($3->value > $1->array_dimension)
 																	yyerror("Array index out of bound");
 																if($3->value < 0)
 																	yyerror("Array index cannot be negative");
 															}
-															$$ = $1->data_type;
+															$$.data_type = $1->data_type;
+															$$.code = concat(4, $1->lexeme, "[", $3->lexeme, "]");
 														}
 	;
 
@@ -363,24 +401,23 @@ array_index: constant	{$$ = $1;}
 	;
 
 function_call: identifier LPAREN parameter_list RPAREN	{
-															$$ = $1->data_type;
+															$$.data_type = $1->data_type;
 															check_parameter_list($1,param_list,p_idx);
 															p_idx = 0;
+															$$.code = concat(4, $1->lexeme, "(", $3.code, ")");
 														}
             |identifier LPAREN RPAREN					{
-							 								$$ = $1->data_type;
+							 								$$.data_type = $1->data_type;
 															check_parameter_list($1,param_list,p_idx);
 															p_idx = 0;
+															$$.code = concat(2, $1->lexeme, "()");
 														}
     ;
 
-parameter_list: parameter_list COMMA  parameter
-            |parameter
+parameter_list: parameter_list COMMA sub_expr	{ param_list[p_idx++] = $3.data_type; $$.code = concat(3, $1.code, ", ", $3.code); }
+            |sub_expr							{ param_list[p_idx++] = $1.data_type; $$.code = $1.code; }
     ;
 
-parameter: sub_expr	{param_list[p_idx++] = $1;}
-		|STRING		{param_list[p_idx++] = STRING;}
-	;
 %%
 
 void type_check(int left, int right, int flag)
@@ -396,6 +433,41 @@ void type_check(int left, int right, int flag)
 	}
 }
 
+char *concat(int count, ...)
+{
+    va_list ap;
+    size_t  len = 0;
+
+    if (count < 1)
+        return NULL;
+
+    // First, measure the total length required.
+    va_start(ap, count);
+    for (int i=0; i < count; i++) {
+        const char *s = va_arg(ap, char *);
+        len += strlen(s);
+    }
+    va_end(ap);
+
+    // Allocate return buffer.
+    char *ret = malloc(len + 1);
+    if (ret == NULL)
+        return NULL;
+
+    // Concatenate all the strings into the return buffer.
+    char *dst = ret;
+    va_start(ap, count);
+    for (int i=0; i < count; i++) {
+        const char *src = va_arg(ap, char *);
+
+        // This loop is a strcpy.
+        while (*dst++ = *src++);
+        dst--;
+    }
+    va_end(ap);
+    return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	int i;
@@ -409,15 +481,13 @@ int main(int argc, char *argv[])
 	constant_table = create_table();
   	symbol_table_list[0].symbol_table = create_table();
 	yyin = fopen(argv[1], "r");
-	yyout=fopen("output.c","w"); 
+
 	if(!yyparse())
 	{
 		printf("\nPARSING COMPLETE\n\n\n");
 	}
 	else
 	{
-		fclose(yyout);
-		remove("./output.c");
 		printf("\nPARSING FAILED!\n\n\n");
 	}
 
@@ -435,8 +505,6 @@ int main(int argc, char *argv[])
 
 int yyerror(char *msg)
 {
-	fclose(yyout);
-	remove("./output.c");
 	printf("Line no: %d Error message: %s Token: %s\n", yylineno, msg, yytext);
 	exit(0);
 }
